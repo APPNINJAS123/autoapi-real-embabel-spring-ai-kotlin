@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
         with:
           distribution: temurin
-          java-version: "21.0.8+9"
+          java-version: "21.0.8+9.0.LTS"
 
       - name: Verify immutable base overlay
         if: github.event_name == 'workflow_dispatch'
@@ -38,8 +38,8 @@ jobs:
           EXPECTED_BASE_SHA: ${{ inputs.expected_base_sha }}
         run: |
           test "$GITHUB_SHA" = "$EXPECTED_BASE_SHA"
-          test "$(git rev-parse HEAD^)" = "dec1e3970ba1f1e028a51ae5e198c8ee57310dc6"
-          test "$(git diff --name-only HEAD^ HEAD | sort)" = "$(printf '%s\n' .github/workflows/autoapi-kotlin.yml AUTOAPI_PROVENANCE.md autoapi-kotlin-proof/pom.xml autoapi-kotlin-proof/src/baseline/kotlin/BaselineContract.kt autoapi-kotlin-proof/src/target/kotlin/TargetContract.kt mvnw scripts/verify-autoapi-spring-ai-m8.py | sort)"
+          git merge-base --is-ancestor dec1e3970ba1f1e028a51ae5e198c8ee57310dc6 HEAD
+          test "$(git diff --name-only dec1e3970ba1f1e028a51ae5e198c8ee57310dc6 HEAD | sort)" = "$(printf '%s\n' .github/workflows/autoapi-kotlin.yml AUTOAPI_PROVENANCE.md autoapi-kotlin-proof/pom.xml autoapi-kotlin-proof/src/baseline/kotlin/BaselineContract.kt autoapi-kotlin-proof/src/target/kotlin/TargetContract.kt mvnw scripts/verify-autoapi-spring-ai-m8.py | sort)"
           printf '%s  %s\n' c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4 LICENSE | sha256sum --check --strict
 
       - name: Verify exact Java and Maven toolchains
