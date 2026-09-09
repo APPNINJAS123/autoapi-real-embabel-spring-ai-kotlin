@@ -49,7 +49,7 @@ else:
         "builder.apiKey(apiKey)",
         "builder.baseUrl(baseUrl)",
         "builder.putHeader(name, value)",
-        ".customHeaders(httpHeaders)",
+        "customHeaders(httpHeaders)",
         "OpenAiEmbeddingModel(",
         "openAiClient,",
         "observationRegistry",
