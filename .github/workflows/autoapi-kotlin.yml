@@ -11,6 +11,7 @@ on:
     paths:
       - embabel-agent-openai/src/main/kotlin/com/embabel/agent/openai/OpenAiCompatibleModelFactory.kt
       - embabel-agent-autoconfigure/models/embabel-agent-dockermodels-autoconfigure/src/main/kotlin/com/embabel/agent/config/models/docker/DockerLocalModelsConfig.kt
+      - autoapi-kotlin-proof/pom.xml
 
 permissions:
   contents: read
@@ -22,15 +23,34 @@ concurrency:
 jobs:
   kotlin-spring-ai-m8-contract:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
         with:
           distribution: temurin
           java-version: "21.0.8+9.0.LTS"
+
+      - name: Verify exact checked-out head and bounded PR changes
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          if test "$EVENT_NAME" = pull_request; then
+            git merge-base --is-ancestor 6730800c9010bc288a90a43c64567838fce8e96a "$PR_BASE_SHA"
+            git diff --name-only "$PR_BASE_SHA" HEAD | python3 -c '
+          import sys
+          approved = {"autoapi-kotlin-proof/pom.xml", "embabel-agent-openai/src/main/kotlin/com/embabel/agent/openai/OpenAiCompatibleModelFactory.kt", "embabel-agent-autoconfigure/models/embabel-agent-dockermodels-autoconfigure/src/main/kotlin/com/embabel/agent/config/models/docker/DockerLocalModelsConfig.kt"}
+          changed = set(sys.stdin.read().splitlines())
+          assert changed and changed <= approved, "PR changed files outside reviewed consumer and dependency scope"
+          '
+          fi
 
       - name: Verify immutable base overlay
         if: github.event_name == 'workflow_dispatch'
@@ -39,7 +59,7 @@ jobs:
         run: |
           test "$GITHUB_SHA" = "$EXPECTED_BASE_SHA"
           git merge-base --is-ancestor dec1e3970ba1f1e028a51ae5e198c8ee57310dc6 HEAD
-          test "$(git diff --name-only dec1e3970ba1f1e028a51ae5e198c8ee57310dc6 HEAD | sort)" = "$(printf '%s\n' .github/workflows/autoapi-kotlin.yml AUTOAPI_PROVENANCE.md autoapi-kotlin-proof/pom.xml autoapi-kotlin-proof/src/baseline/kotlin/BaselineContract.kt autoapi-kotlin-proof/src/target/kotlin/TargetContract.kt mvnw scripts/verify-autoapi-spring-ai-m8.py | sort)"
+          test "$(git diff --name-only dec1e3970ba1f1e028a51ae5e198c8ee57310dc6 HEAD | sort)" = "$(printf '%s\n' .github/workflows/autoapi-kotlin.yml AUTOAPI_PROVENANCE.md autoapi-kotlin-proof/pom.xml autoapi-kotlin-proof/src/baseline/kotlin/BaselineContract.kt autoapi-kotlin-proof/src/target/kotlin/TargetContract.kt autoapi-kotlin-proof/src/test/kotlin/ActualConsumerTest.kt mvnw scripts/verify-autoapi-spring-ai-m8.py | sort)"
           printf '%s  %s\n' c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4 LICENSE | sha256sum --check --strict
 
       - name: Verify exact Java and Maven toolchains
@@ -50,13 +70,18 @@ jobs:
       - name: Verify real Embabel migration sites
         run: python3 scripts/verify-autoapi-spring-ai-m8.py "${{ github.event_name == 'pull_request' && 'target' || 'baseline' }}"
 
-      - name: Compile the matching real SDK contract
+      - name: Compile and behavior-test both actual Kotlin consumers
         run: |
           if test "${{ github.event_name }}" = pull_request; then
-            ./mvnw -B -f autoapi-kotlin-proof/pom.xml clean compile
+            ./mvnw -B -ntp -Dspring-ai.version=2.0.0-M8 -f autoapi-kotlin-proof/pom.xml clean verify
+            ./mvnw -o -B -ntp -Dspring-ai.version=2.0.0-M8 -f autoapi-kotlin-proof/pom.xml clean verify
           else
-            ./mvnw -B -Dautoapi.baseline=true -f autoapi-kotlin-proof/pom.xml clean compile
+            ./mvnw -B -ntp -Dspring-ai.version=1.1.7 -f autoapi-kotlin-proof/pom.xml clean verify
+            ./mvnw -o -B -ntp -Dspring-ai.version=1.1.7 -f autoapi-kotlin-proof/pom.xml clean verify
           fi
+
+      - name: Verify compiled source identity, real SDK classpath, and negative compiler probes
+        run: python3 scripts/verify-autoapi-spring-ai-m8.py "${{ github.event_name == 'pull_request' && 'target' || 'baseline' }}" --compiled --negative
 
       - name: Verify immutable official SDK artifacts
         run: |

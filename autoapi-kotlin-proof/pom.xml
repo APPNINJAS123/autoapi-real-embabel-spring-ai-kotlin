@@ -8,13 +8,30 @@
   <version>1.0.0</version>
 
   <properties>
-    <maven.compiler.release>17</maven.compiler.release>
+    <maven.compiler.release>21</maven.compiler.release>
     <kotlin.version>2.2.20</kotlin.version>
-    <spring-ai.version>2.0.0-M8</spring-ai.version>
-    <contract.source>src/target/kotlin</contract.source>
+    <spring-ai.version>1.1.7</spring-ai.version>
+    <spring-framework.version>6.2.18</spring-framework.version>
+    <spring-boot.version>3.5.14</spring-boot.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.ai</groupId><artifactId>spring-ai-bom</artifactId>
+        <version>${spring-ai.version}</version><type>pom</type><scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId><artifactId>spring-framework-bom</artifactId>
+        <version>${spring-framework.version}</version><type>pom</type><scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework.boot</groupId><artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version><type>pom</type><scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>org.springframework.ai</groupId>
@@ -26,11 +43,52 @@
       <artifactId>kotlin-stdlib</artifactId>
       <version>${kotlin.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-reflect</artifactId><version>${kotlin.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.embabel.agent</groupId><artifactId>embabel-agent-api</artifactId><version>0.4.0</version>
+      <exclusions>
+        <exclusion><groupId>org.springframework.ai</groupId><artifactId>spring-ai-starter-mcp-client</artifactId></exclusion>
+        <exclusion><groupId>org.springframework.ai</groupId><artifactId>spring-ai-vector-store</artifactId></exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.embabel.agent</groupId><artifactId>embabel-agent-byok</artifactId><version>0.4.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId><artifactId>spring-webflux</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>5.11.4</version><scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
-    <sourceDirectory>${contract.source}</sourceDirectory>
+    <sourceDirectory>${project.build.directory}/actual-consumers</sourceDirectory>
+    <testSourceDirectory>src/test/kotlin</testSourceDirectory>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-resources-plugin</artifactId><version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>copy-actual-consumers-without-filtering</id><phase>generate-sources</phase><goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/actual-consumers</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../embabel-agent-openai/src/main/kotlin</directory><filtering>false</filtering>
+                  <includes><include>com/embabel/agent/openai/OpenAiCompatibleModelFactory.kt</include></includes>
+                </resource>
+                <resource>
+                  <directory>${project.basedir}/../embabel-agent-autoconfigure/models/embabel-agent-dockermodels-autoconfigure/src/main/kotlin</directory><filtering>false</filtering>
+                  <includes><include>com/embabel/agent/config/models/docker/DockerLocalModelsConfig.kt</include></includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-maven-plugin</artifactId>
@@ -41,22 +99,41 @@
             <phase>compile</phase>
             <goals><goal>compile</goal></goals>
           </execution>
+          <execution><id>test-compile</id><phase>test-compile</phase><goals><goal>test-compile</goal></goals></execution>
         </executions>
         <configuration>
-          <jvmTarget>17</jvmTarget>
+          <jvmTarget>21</jvmTarget>
+          <args><arg>-Xjvm-default=all</arg></args>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.4</version>
+        <configuration><failIfNoTests>true</failIfNoTests></configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-dependency-plugin</artifactId><version>3.8.1</version>
+        <executions>
+          <execution><id>resolved-consumer-classpath</id><phase>generate-sources</phase><goals><goal>build-classpath</goal></goals>
+            <configuration><outputFile>${project.build.directory}/consumer-classpath.txt</outputFile></configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
 
   <profiles>
     <profile>
-      <id>baseline</id>
-      <activation><property><name>autoapi.baseline</name></property></activation>
+      <id>spring-ai-2-framework</id>
+      <activation><property><name>spring-ai.version</name><value>2.0.0-M8</value></property></activation>
       <properties>
-        <spring-ai.version>1.1.7</spring-ai.version>
-        <contract.source>src/baseline/kotlin</contract.source>
+        <spring-framework.version>7.0.7</spring-framework.version>
+        <spring-boot.version>4.1.0-RC1</spring-boot.version>
       </properties>
+      <dependencies>
+        <dependency>
+          <groupId>tools.jackson.module</groupId><artifactId>jackson-module-kotlin</artifactId>
+        </dependency>
+      </dependencies>
     </profile>
   </profiles>
 </project>
