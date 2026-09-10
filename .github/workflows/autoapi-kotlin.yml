@@ -30,11 +30,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
-        with:
-          distribution: temurin
-          java-version: "21.0.8+9.0.LTS"
-
       - name: Verify exact checked-out head and bounded PR changes
         env:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -51,6 +46,11 @@ jobs:
           assert changed and changed <= approved, "PR changed files outside reviewed consumer and dependency scope"
           '
           fi
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: "21.0.8+9.0.LTS"
 
       - name: Verify immutable base overlay
         if: github.event_name == 'workflow_dispatch'

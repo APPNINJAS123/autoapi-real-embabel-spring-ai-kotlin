@@ -69,3 +69,11 @@ performs online then offline compile/tests. Its baseline dispatch preserves
 the upstream source/license and verifies the exact overlay allowlist. All
 inherited workflows remain disabled in repository settings. A green baseline
 is readiness evidence only, not a Part A + Part B migration result.
+
+### Immediate exact-head attribution follow-up (2026-09-11)
+
+The exact checked-out SHA assertion and bounded PR-file check now run immediately
+after checkout, before Java setup or any other action. This workflow-only ordering
+normalization does not change either actual consumer, the isolated POM, tests,
+validator, runtime versions, license, or migration authority. It remains a
+source-preserving baseline-readiness check, not migration acceptance evidence.
