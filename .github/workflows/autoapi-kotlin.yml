@@ -1,5 +1,7 @@
 name: AutoAPI Spring AI Kotlin migration contract
 
+# Disposable public OSS acceptance mirror; the reviewed base branch remains immutable.
+
 on:
   workflow_dispatch:
     inputs:
